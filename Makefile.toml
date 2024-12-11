@@ -54,6 +54,7 @@ args = [
 [tasks.run]
 extend = "set-env-local"
 dependencies = ["before-build"]
+description = "Run the application"
 command = "cargo"
 args = ["run", "${@}"]
 

@@ -1,94 +1,100 @@
+use adapter::database::connect_database_with;
+use anyhow::Context;
+use anyhow::{Error, Result};
+use axum::Router;
+use registry::AppRegistry;
+use shared::config::AppConfig;
+use shared::env::{which, Environment};
 use std::net::{Ipv4Addr, SocketAddr};
-
-use anyhow::Result;
-use axum::{extract::State, http::StatusCode, routing::get, Router};
+use std::result;
+use std::sync::Arc;
 use tokio::net::TcpListener;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
-use sqlx::{postgres::PgConnectOptions, PgPool};
+use api::route::{book::build_book_routers, health::build_health_check_routers};
 
-// どんなリクエストが来てもhelloworldを返す関数を作成　
-// https://docs.rs/axum/0.7.5/axum/response/trait.IntoResponse.html
-pub async fn health_check() -> StatusCode{
-    StatusCode::OK
-}
+use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tower_http::LatencyUnit;
+use tracing::Level;
 
-#[tokio::test]
-async fn health_check_works(){
-
-    // health関数を呼び出す。awaitとして結果を得る
-    let status_code = health_check().await; 
-
-    assert_eq!(status_code, StatusCode::OK);
-}
-
-// DBの接続設定を表す構造体を定義する
-struct DatabaseConfig {
-    pub host: String,
-    pub port: u16,
-    pub username: String,
-    pub password: String, 
-    pub database: String,
-}
-
-// DB接続設定から、Postgres接続用の構造体へ変更する
-impl From<DatabaseConfig> for PgConnectOptions {
-    fn from(cfg: DatabaseConfig) -> Self{
-        Self::new()
-            .host(&cfg.host)
-            .port(cfg.port)
-            .username(&cfg.username)
-            .password(&cfg.password)
-            .database(&cfg.database)
-    }
-}
-
-// Postgres専用のコネクションプールを作成する　
-fn connect_database_with(cfg: DatabaseConfig) -> PgPool{
-    PgPool::connect_lazy_with(cfg.into())
-}
-
-async fn health_check_db(State(db): State<PgPool>) -> StatusCode{
-    let connection_result = sqlx::query("SELECT 1").fetch_one(&db).await;
-    match connection_result {
-        Ok(_) => StatusCode::OK,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
-    }
-}
-
-#[sqlx::test]
-async fn health_check_db_works(pool: sqlx::PgPool) {
-    let status_code = health_check_db(State(pool)).await;
-    assert_eq!(status_code, StatusCode::OK);
-}
+use tower_http::cors::{self, CorsLayer};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    init_logger()?;
+    bootstrap().await
+}
 
-    // DB接続設定を定義する　
-    let database_cfg = DatabaseConfig {
-        host: "localhost".into(),
-        port: 5433,
-        username: "app".into(),
-        password: "passwd".into(),
-        database: "app".into(),
+// ロガーを初期化する関数
+fn init_logger() -> Result<()> {
+    let log_level = match which() {
+        Environment::Development => "debug",
+        Environment::Production => "info",
     };
 
-    // コネクションプールを作る　
-    let conn_pool = connect_database_with(database_cfg);
+    // ログレベルを設定
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| log_level.into());
 
-    // /helloというパスにGETリクエストが送られてきたらhello_word関数を呼び出す
+    // ログレベル出力形式を設定
+    let subscriber = tracing_subscriber::fmt::layer()
+        .with_file(true)
+        .with_line_number(true)
+        .with_target(false);
+
+    tracing_subscriber::registry()
+        .with(subscriber)
+        .with(env_filter)
+        .try_init()?;
+
+    Ok(())
+}
+
+// サーバー起動分のログを生成する
+async fn bootstrap() -> Result<()> {
+    // `AppConfig`を生成させる
+    let app_config = AppConfig::new()?;
+
+    // DBへの接続を行う、コネクションプールを取り出す
+    let pool = connect_database_with(&app_config.database);
+
+    // `AppRegistry`を生成する
+    let registry = AppRegistry::new(pool);
+
+    // `build_health_check_routers`関数をcall. `AppRegistry`を`Router`に登録。
     let app = Router::new()
-        .route("/health", get(health_check))
-        // ルーターの`State`にプールを登録しておき、各ハンドラで使えるようにする
-        .route("/health/db", get(health_check_db))
-        .with_state(conn_pool);
-    
+        .merge(v1::routes())
+        .merge(auth::routes())
+        .layer(cors())
+        // 以下にリクエストとレスポンス時にログを出力するレイヤーを追加する
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Millis),
+                ),
+        )
+        .with_state(registry);
+
+    // 起動時と起動失敗時のログを設定する
     let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 8080);
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
 
-    let listener = TcpListener::bind(addr).await?;
-
-    println!("Listening on {}", addr);
-
-    // サーバーを起動する　
-    Ok(axum::serve(listener, app).await?)
+    // prinln!からtracing::info!に変更
+    tracing::info!("Listening on {}", addr);
+    axum::serve(listener, app)
+        .await
+        .context("Unexpected error happened in server")
+        // 起動失敗した際のエラーログをtracing::error!で出力
+        .inspect_err(|e| {
+            tracing::error!(
+                error.cause_chain = ?e,
+                error.message = %e,
+                "Unexpected error"
+            )
+        })
 }
