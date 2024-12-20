@@ -112,3 +112,24 @@ sequenceDiagram
 #### 実装手順
 
 `kernel → adapter → api`の順に実装を進める。
+
+## テスト用の記述
+
+```zsh
+curl -v "http://localhost:8080/auth/login" \
+-H 'content-type: application/json' \
+-d '{"email":"mebiusu1968@gmail.com", "password": "Swimming3003"}'
+```
+
+```zsh
+curl -v -X POST "http://localhost:8080/auth/logout" \
+-H 'Authorization: Bearer e7e892cfa28341fe96831d1806d17ee7'
+```
+
+```zsh
+curl -v -X POST http://localhost:8080/api/v1/books \
+-H 'Authorization: Bearer db15f79f8de94b8992c4f291c21fb3f9' \
+-H 'Content-Type: application/json' \
+-d '{"title":"Rust book","author":"me","isbn":"1234567890","description":""}'
+
+```
