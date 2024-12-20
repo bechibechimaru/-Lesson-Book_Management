@@ -54,3 +54,26 @@ CREATE TRIGGER books_updated_at_trigger
     EXECUTE PROCEDURE set_updated_at();
 
 
+-- 貸し出し管理のためのテーブルを作成　
+CREATE TABLE IF NOT EXISTS checkouts (
+    checkout_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    book_id UUID NOT NULL UNIQUE,
+    user_id UUID NOT NULL,
+    checked_out_at TIMESTAMP(3) WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    FOREIGN KEY (book_id) REFERENCES books(book_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- 返却のためのテーブルを作成
+CREATE TABLE IF NOT EXISTS returned_checkouts (
+    checkout_id UUID PRIMARY KEY,
+    book_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    checked_out_at TIMESTAMP(3) WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+);
+
