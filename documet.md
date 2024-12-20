@@ -115,21 +115,51 @@ sequenceDiagram
 
 ## テスト用の記述
 
+ログイン機能
+
 ```zsh
 curl -v "http://localhost:8080/auth/login" \
 -H 'content-type: application/json' \
 -d '{"email":"mebiusu1968@gmail.com", "password": "Swimming3003"}'
 ```
 
+ログアウト機能
+
 ```zsh
 curl -v -X POST "http://localhost:8080/auth/logout" \
--H 'Authorization: Bearer e7e892cfa28341fe96831d1806d17ee7'
+-H 'Authorization: Bearer 要設定'
 ```
+
+本の一覧取得
+
+```zsh
+curl -v POST "http://localhost:8080/api/v1/books" \
+-H 'Authorization: Bearer c28decb21f7d49d296340d87f28fb8c2'
+```
+
+本の追加
 
 ```zsh
 curl -v -X POST http://localhost:8080/api/v1/books \
 -H 'Authorization: Bearer db15f79f8de94b8992c4f291c21fb3f9' \
 -H 'Content-Type: application/json' \
--d '{"title":"Rust book","author":"me","isbn":"1234567890","description":""}'
-
+-d '{"title":"","author":"","isbn":"","description":""}'
 ```
+
+
+## 貸出機能のAPI一覧
+
+|HTTPメソッド|パス|説明|Rustの関数名|
+|------|---|---|---|
+|POST|/api/v1/books/{book_id}/checkouts|蔵書の貸出操作を行う|checkout_book|
+|PUT|/api/v1/books/{book_id}/checkouts/{checkout_id}/returned|蔵書を返却する|return_book|
+|GET|/api/v1/books/checkouts|未返却の貸出中の蔵書一覧を取得する|show_checked_out_list|
+|GET|/api/v1/books/{book_id}/checkout-history|該当蔵書の貸出履歴を取得する|checkout_history|
+|GET|/api/v1/users/me/checkouts|自分が借りている蔵書の一覧を取得する||
+
+### 実装の流れ
+
+1. kernelでの型とRepositoryトレイトの追加
+2. adapterでのトレイト実装
+3. registryへの追加
+4. apiでのAPI実装
