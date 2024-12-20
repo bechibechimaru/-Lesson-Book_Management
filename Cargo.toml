@@ -49,6 +49,7 @@ bcrypt = "0.15.0"
 itertools = "0.11.0"
 tower = "0.4.13"
 tracing = { version = "0.1.37", features = ["log"]}
+tracing-subscriber = "0.3"
 axum-extra = { version = "0.9.3", features = ["typed-header"]}
 tokio-stream = "0.1.14"
 garde = { version = "0.18.0", features = ["derive", "email"]}
@@ -69,6 +70,8 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 opentelemetry = "0.21.0"
 tracing-opentelemetry = "0.22.0"
 opentelemetry-jaeger = { version = "0.20.0", features  = ["rt-tokio"] }
+idna = "1.0.3"
+
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

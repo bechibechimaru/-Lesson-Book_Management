@@ -1,25 +1,23 @@
-use adapter::database::connect_database_with;
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
+    use adapter::{database::connect_database_with, redis::RedisClient};
 use anyhow::Context;
-use anyhow::{Error, Result};
+use anyhow::Result;
 use axum::Router;
 use registry::AppRegistry;
 use shared::config::AppConfig;
 use shared::env::{which, Environment};
-use std::net::{Ipv4Addr, SocketAddr};
-use std::result;
-use std::sync::Arc;
-use tokio::net::TcpListener;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use api::route::{book::build_book_routers, health::build_health_check_routers};
+use api::route::{auth, v1};
 
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tower_http::LatencyUnit;
 use tracing::Level;
-
-use tower_http::cors::{self, CorsLayer};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -58,15 +56,16 @@ async fn bootstrap() -> Result<()> {
 
     // DBへの接続を行う、コネクションプールを取り出す
     let pool = connect_database_with(&app_config.database);
+    
+    let kv = Arc::new(RedisClient::new(&app_config.redis)?);
 
     // `AppRegistry`を生成する
-    let registry = AppRegistry::new(pool);
+    let registry = AppRegistry::new(pool, kv, app_config);
 
     // `build_health_check_routers`関数をcall. `AppRegistry`を`Router`に登録。
     let app = Router::new()
         .merge(v1::routes())
         .merge(auth::routes())
-        .layer(cors())
         // 以下にリクエストとレスポンス時にログを出力するレイヤーを追加する
         .layer(
             TraceLayer::new_for_http()
@@ -78,7 +77,7 @@ async fn bootstrap() -> Result<()> {
                         .latency_unit(LatencyUnit::Millis),
                 ),
         )
-        .with_state(registry);
+        .with_state(registry); // AppRegistry
 
     // 起動時と起動失敗時のログを設定する
     let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 8080);

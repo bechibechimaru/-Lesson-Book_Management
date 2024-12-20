@@ -10,7 +10,7 @@ INSERT INTO
 SELECT 
     'Shogo Karube',
     'mebiusu1968@gmail.com',
-    '$2b$12$rRJhvErFgMUzMJG2wdRYq.7hunA2AnJVIwdCC7T7RZsTppgBvWL2C',
+    '$2b$12$Wtl2LVkxJhpNusdPux6lheMiNPSvUVhvlcBY5FDR8fvImgrwfup.q',
     role_id
 FROM 
     roles

@@ -1,6 +1,7 @@
-// Bookのの内容を定義する
-use crate::model::id::BookId;
 pub mod event;
+
+// Bookのの内容を定義する
+use crate::model::{id::BookId, user::BookOwner};
 
 #[derive(Debug)]
 pub struct Book {
@@ -9,4 +10,12 @@ pub struct Book {
     pub author: String,
     pub isbn: String,
     pub description: String,
+    pub owner: BookOwner,
+}
+
+// ページネーションの範囲を指定するための設定値を格納する型を追加　
+#[derive(Debug)]
+pub struct BookListOptions{
+    pub limit: i64,
+    pub offset: i64,
 }

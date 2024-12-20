@@ -1,21 +1,32 @@
-use crate::model::book::{BookResponse, CreateBookRequest};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
-use kernel::model::id::BookId;
+use garde::Validate;
+use kernel::model::{book::event::DeleteBook, id::BookId};
 use registry::AppRegistry;
 use shared::error::{AppError, AppResult};
 
+use crate::{
+    extractor::AuthorizedUser,
+    model::book::{
+        BookListQuery, BookResponse, CreateBookRequest, PaginatedBookResponse,
+        UpdateBookRequest, UpdateBookRequestWithIds
+    },
+};
+
 // 蔵書を登録するAPIを作成
 pub async fn register_book(
+    user: AuthorizedUser,
     State(registry): State<AppRegistry>, // Appregistryを参照
     Json(req): Json<CreateBookRequest>,  // JSONデータから変換する構造体を指定する
-) -> Result<StatusCode, AppError> {
+) -> AppResult<StatusCode> {
+    req.validate(&())?;
+
     registry
         .book_repository()
-        .create(req.into())
+        .create(req.into(), user.id())
         .await
         .map(|_| StatusCode::CREATED)
 }
@@ -27,19 +38,23 @@ pub async fn register_book(
 
 // 蔵書の一覧を取得するAPIを作成
 pub async fn show_book_list(
+    _user: AuthorizedUser,
+    Query(query): Query<BookListQuery>,
     State(registry): State<AppRegistry>,
-) -> Result<Json<Vec<BookResponse>>, AppError> {
+) -> AppResult<Json<PaginatedBookResponse>>{
+    query.validate(&())?;
+
     registry
         .book_repository()
-        .find_all()
+        .find_all(query.into())
         .await
-        .map(|v| v.into_iter().map(BookResponse::from).collect::<Vec<_>>())
+        .map(PaginatedBookResponse::from)
         .map(Json) // 成功時の戻り値をJSON型で包んでいる:"Result<Vec<BookResponse>" -> "Result<Json<Vec<BookResponse>>"
-        .map_err(AppError::from)
 }
 
 // idから蔵書を取得するAPI
 pub async fn show_book(
+    _user: AuthorizedUser,
     Path(book_id): Path<BookId>, // パスパラメーター取得のため:URLのパス構成(/books/uuid)となっていて、uuidの部分をuuidとして取得することができる
     State(registry): State<AppRegistry>,
 ) -> Result<Json<BookResponse>, AppError> {
@@ -52,4 +67,37 @@ pub async fn show_book(
             None => Err(AppError::EntityNotFound("not found".into())),
         })
         .map_err(AppError::from)
+}
+
+pub async fn update_book(
+    user: AuthorizedUser,
+    Path(book_id): Path<BookId>,
+    State(registry): State<AppRegistry>,
+    Json(req): Json<UpdateBookRequest>,
+) -> AppResult<StatusCode> {
+    req.validate(&())?;
+
+    let update_book = UpdateBookRequestWithIds::new(book_id, user.id(), req);
+
+    registry   
+        .book_repository()
+        .update(update_book.into())
+        .await
+        .map(|_| StatusCode::OK)
+}
+
+pub async fn delete_book(
+    user: AuthorizedUser, 
+    Path(book_id): Path<BookId>,
+    State(registry): State<AppRegistry>,
+) -> AppResult<StatusCode> {
+    let delete_book = DeleteBook {
+        book_id,
+        requested_user: user.id(),
+    };
+    registry 
+        .book_repository()
+        .delete(delete_book)
+        .await
+        .map(|_| StatusCode::OK)
 }
