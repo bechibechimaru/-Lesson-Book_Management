@@ -30,5 +30,5 @@ pub struct BookListOptions{
 pub struct Checkout{
     pub checkout_id: CheckoutId,
     pub checked_out_by: CheckoutUser,
-    pub cheked_out_at: DateTime<Utc>,
+    pub checked_out_at: DateTime<Utc>,
 }
