@@ -19,6 +19,7 @@ use kernel::repository::checkout::CheckoutRepository;
 
 use shared::config::AppConfig;
 
+
 // 1. DIコンテナの役割を果たす構造体を定義する。
 #[derive(Clone)]
 pub struct AppRegistry {

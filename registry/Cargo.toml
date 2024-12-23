@@ -10,3 +10,4 @@ adapter.workspace = true
 kernel.workspace = true
 shared.workspace = true
 mockall.workspace = true
+tracing.workspace = true
