@@ -130,7 +130,7 @@ impl CheckoutRepository for CheckoutRepositoryImpl {
                 "#,
                 event.book_id as _,
             )
-            .fetch_optional(&mut tx)
+            .fetch_optional(&mut *tx)
             .await
             .map_err(AppError::SpecificOperationError)?;
 
@@ -177,7 +177,7 @@ impl CheckoutRepository for CheckoutRepositoryImpl {
         .map_err(AppError::SpecificOperationError)?;
 
         if res.rows_affected() < 1 {
-            return Err(AppError::SpecificOperationError(
+            return Err(AppError::NoRowsAffectedError(
                 "No returning record has been updated".into(),
             ));
         }
@@ -301,7 +301,7 @@ impl CheckoutRepository for CheckoutRepositoryImpl {
 
         // 貸出中である場合は返却済みの履歴の先頭に追加する
         if let Some(co) = checkout {
-            checkout_histories.inner(0, co);
+            checkout_histories.insert(0, co);
         }
 
         Ok(checkout_histories)
@@ -317,7 +317,7 @@ impl CheckoutRepositoryImpl {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     ) -> AppResult<()> {
         sqlx::query!("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await
             .map_err(AppError::SpecificOperationError)?;
         Ok(())
