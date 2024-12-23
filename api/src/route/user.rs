@@ -12,7 +12,7 @@ pub fn build_user_router() -> Router<AppRegistry> {
     Router::new()
         .route("/users/me", get(get_current_user))
         .route("/users/me/password", put(change_password))
-        .route("users/me/checkouts",get(get(get_checkouts)))
+        .route("/users/me/checkouts",get(get(get_checkouts)))
         .route("/users", get(list_users).post(register_user))
         .route("/users/:user_id",delete(delete_user))
         .route("/users/:user_id/role", put(change_role))

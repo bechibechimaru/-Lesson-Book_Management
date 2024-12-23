@@ -23,8 +23,8 @@ pub fn build_book_routers() -> Router<AppRegistry> {
         .route("/:book_id", delete(delete_book));
 
     let checkout_router = Router::new()
-        .route("chcekouts", get(show_checked_out_list))
-        .route(":book_id/checkouts", post(checkout_book))
+        .route("/checkouts", get(show_checked_out_list))
+        .route("/:book_id/checkouts", post(checkout_book))
         .route(
             "/:book_id/checkouts/:checkout_id/returned",
             put(return_book),
