@@ -1,6 +1,8 @@
 // トレイトのメソッドを実行して結果を受け取る
 // リクエストを受け取る関数
 
+use std::result;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -19,7 +21,10 @@ use crate::{
         UpdateUserPasswordRequestWithUserId, UpdateUserRoleRequest,
         UpdateuserRoleRequestWithUserId, UserResponse, UsersResponse
     },
+    model::checkout::CheckoutsResponse,
 };
+
+use tracing::info;
 
 //ユーザーを追加する　(Admin only)
 pub async fn register_user (
@@ -37,6 +42,7 @@ pub async fn register_user (
     let registered_user = 
         registry.user_repository().create(req.into()).await?;
     Ok(Json(registered_user.into()))
+    
 }
 
 /// ユーザーの一覧を取得する
@@ -115,4 +121,21 @@ pub async fn change_password(
         .await?;
 
     Ok(StatusCode::OK)
+}
+
+// ユーザーが自身の借りている書籍の一覧を取得する　
+pub async fn get_checkouts(
+    user: AuthorizedUser,
+    State(registry): State<AppRegistry>,
+) -> AppResult<Json<CheckoutsResponse>> {
+    let result = registry
+        .checkout_repository()
+        .find_unreturned_by_user_id(user.id())
+        .await
+        .map(CheckoutsResponse::from)
+        .map(Json);
+
+    info!("The endpoint of get_checkouts request successfully worked.");
+
+    result
 }
