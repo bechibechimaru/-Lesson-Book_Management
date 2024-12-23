@@ -9,7 +9,7 @@ use adapter::{
     },
 };
 use adapter::repository::user::UserRepositoryImpl;
-use adapter::repository::checkout::CheckoutRepository;
+use adapter::repository::checkout::CheckoutRepositoryImpl;
 
 use kernel::repository::{
     auth::AuthRepository, book::BookRepository, health::HealthCheckRepository,
