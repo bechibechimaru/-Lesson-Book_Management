@@ -5,7 +5,7 @@ use std::{
     use adapter::{database::connect_database_with, redis::RedisClient};
 use anyhow::Context;
 use anyhow::Result;
-use axum::Router;
+use axum::{http::Method, Router};
 use registry::AppRegistry;
 use shared::config::AppConfig;
 use shared::env::{which, Environment};
@@ -17,6 +17,7 @@ use api::route::{auth, v1};
 
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tower_http::LatencyUnit;
+use tower_http::cors::{self, CorsLayer};
 use tracing::Level;
 
 #[tokio::main]
@@ -49,6 +50,18 @@ fn init_logger() -> Result<()> {
     Ok(())
 }
 
+fn cors() -> CorsLayer {
+    CorsLayer::new()
+        .allow_headers(cors::Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+        ])
+        .allow_origin(cors::Any)
+}
+
 // サーバー起動分のログを生成する
 async fn bootstrap() -> Result<()> {
     // `AppConfig`を生成させる
@@ -67,16 +80,7 @@ async fn bootstrap() -> Result<()> {
         .merge(v1::routes())
         .merge(auth::routes())
         // 以下にリクエストとレスポンス時にログを出力するレイヤーを追加する
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-                .on_request(DefaultOnRequest::new().level(Level::INFO))
-                .on_response(
-                    DefaultOnResponse::new()
-                        .level(Level::INFO)
-                        .latency_unit(LatencyUnit::Millis),
-                ),
-        )
+        .layer(cors())
         .with_state(registry); // AppRegistry
 
     // 起動時と起動失敗時のログを設定する
@@ -97,3 +101,4 @@ async fn bootstrap() -> Result<()> {
             )
         })
 }
+
