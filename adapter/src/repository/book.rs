@@ -284,72 +284,34 @@ impl BookRepositoryImpl{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repository::user::UserRepositoryImpl;
-    use kernel::{
-        model::user::event::CreateUser, repository::user::UserRepository
-    };
+    use crate::repository::book::BookRepositoryImpl;
+    use kernel::model::id::UserId;
+    use std::str::FromStr;
 
-    #[sqlx::test]
-    async fn test_register_book(pool: sqlx::PgPool) -> anyhow::Result<()> {
-
-        sqlx::query!(r#"INSERT INTO roles(name) VALUES ('Admin'), ('User');"#)
-            .execute(&pool)
-            .await?;
-
-        let user_repo = 
-            UserRepositoryImpl::new(ConnectionPool::new(pool.clone()));
-
+    #[sqlx::test(fixtures("common", "book"))]
+    async fn test_update_book(pool: sqlx::PgPool) -> anyhow::Result<()> {
         let repo = BookRepositoryImpl::new(ConnectionPool::new(pool.clone()));
 
-        // テスト用のユーザーデータを作成
-        let user = user_repo 
-            .create(CreateUser {
-                name: "Test User".into(),
-                email: "test@example.com".into(),
-                password: "test_password".into(),
-            })
-            .await?;
+        // 2. fixtures/book.sqlで作成済みの書籍を取得　
+        let book_id = BookId::from_str("9890736e-a4e4-461a-a77d-eac3517ef11b").unwrap();
+        let book = repo.find_by_id(book_id).await?.unwrap();
+        const NEW_AUTHOR: &str = "更新後の著者名";
+        assert_ne!(book.author, NEW_AUTHOR);
 
-        // テスト用の蔵書データを作成
-        let book = CreateBook {
-            title: "Test Title".into(),
-            author: "Test Author".into(),
-            isbn: "Test ISBN".into(),
-            description: "Test Description".into(),
+        // 3. 書籍の更新用のパラメーターを作成し、更新を行う
+        let update_book = UpdateBook {
+            book_id: book.id,
+            title: book.title,
+            author: NEW_AUTHOR.into(),
+            isbn: book.isbn,
+            description: book.description,
+            requested_user: UserId::from_str("5b4c96ac-316a-4bee-8e69-cac5eb84ff4c").unwrap(),
         };
-        // 蔵書データを投入すると正常に動作することを確認
-        repo.create(book, user.id).await?;
+        repo.update(update_book).await.unwrap();
 
-        // find_allを実行するためにはBookListOptions型の値が必要
-        let options = BookListOptions{
-            limit: 20,
-            offset: 0,
-        };
-
-        // 蔵書の一覧を取得すると投入した1件だけ取得できることを確認
-        let res = repo.find_all(options).await?;
-        assert_eq!(res.items.len(), 1);
-
-        let book_id = res.items[0].id;
-        let res = repo.find_by_id(book_id).await?;
-        assert!(res.is_some());
-
-        // 取得した蔵書データがCreateBookで投入した、蔵書データと一致することを確認
-        let Book {
-            id,
-            title,
-            author,
-            isbn,
-            description,
-            owner,
-            ..
-        } = res.unwrap();
-        assert_eq!(id, book_id);
-        assert_eq!(title, "Test Title");
-        assert_eq!(author, "Test Author");
-        assert_eq!(isbn, "Test ISBN");
-        assert_eq!(description, "Test Description");
-        assert_eq!(owner.name, "Test User");
+        // 4. 更新後の書籍を取得し、期待通りに更新されていることを検証する　
+        let book = repo.find_by_id(book_id).await?.unwrap();
+        assert_eq!(book.author, NEW_AUTHOR);
 
         Ok(())
     }
