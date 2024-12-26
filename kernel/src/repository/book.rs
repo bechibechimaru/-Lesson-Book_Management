@@ -10,6 +10,7 @@ use crate::model::{
     list::PaginatedList,
 };
 
+#[mockall::automock]
 #[async_trait]
 pub trait BookRepository: Send + Sync {
     // 蔵書を追加する際に所有者を指定するuser_idを引数に追加

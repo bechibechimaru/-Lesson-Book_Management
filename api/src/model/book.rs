@@ -110,7 +110,7 @@ impl From<BookListQuery> for BookListOptions {
 }
 
 // BookResponseの定義：データの取得の際の応答形式を作成
-#[derive(Debug, Serialize)]
+#[derive(Debug,Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookResponse {
     pub id: BookId,
@@ -146,7 +146,7 @@ impl From<Book> for BookResponse {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug,Deserialize,Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookCheckoutResponse {
     pub id: CheckoutId,
@@ -185,7 +185,7 @@ impl From<Checkout> for BookCheckoutResponse {
 // 構造体全体のフィールド名を所定のルールでリネームするために使うアトリビュートである
 
 // apiレイヤーでのページネーション表現用の型
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaginatedBookResponse{
     pub total: i64, 

@@ -2,11 +2,11 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-    use adapter::{database::connect_database_with, redis::RedisClient};
-use anyhow::Context;
-use anyhow::Result;
+
+use adapter::{database::connect_database_with, redis::RedisClient};
+use anyhow::{Context, Result};
 use axum::{http::Method, Router};
-use registry::AppRegistry;
+use registry::AppRegistryImpl;
 use shared::config::AppConfig;
 use shared::env::{which, Environment};
 use tracing_subscriber::layer::SubscriberExt;
@@ -73,7 +73,7 @@ async fn bootstrap() -> Result<()> {
     let kv = Arc::new(RedisClient::new(&app_config.redis)?);
 
     // `AppRegistry`を生成する
-    let registry = AppRegistry::new(pool, kv, app_config);
+    let registry = Arc::new(AppRegistryImpl::new(pool, kv, app_config));
 
     // `build_health_check_routers`関数をcall. `AppRegistry`を`Router`に登録。
     let app = Router::new()
