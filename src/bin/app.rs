@@ -53,12 +53,7 @@ fn init_logger() -> Result<()> {
 fn cors() -> CorsLayer {
     CorsLayer::new()
         .allow_headers(cors::Any)
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-        ])
+        .allow_methods([Method::GET,Method::POST,Method::PUT,Method::DELETE,])
         .allow_origin(cors::Any)
 }
 
@@ -79,6 +74,16 @@ async fn bootstrap() -> Result<()> {
     let app = Router::new()
         .merge(v1::routes())
         .merge(auth::routes())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Millis),
+                ),
+        )
         // 以下にリクエストとレスポンス時にログを出力するレイヤーを追加する
         .layer(cors())
         .with_state(registry); // AppRegistry
